@@ -1,21 +1,35 @@
 import type { CreateItemAttrs } from '$services/types';
 import {serialize} from "$services/queries/items/serialize";
-import {genId} from "$services/utils";
+import {genId, isEmptyObj} from "$services/utils";
 import {client} from "$services/redis";
 import {itemsKey} from "$services/keys";
-import {deserialize} from "$services/queries/items/deserialize";
+import {deserializeItem} from "$services/queries/items/deserialize";
 
 export const getItem = async (id: string) => {
     const item = await client.hGetAll(itemsKey(id));
 
-    if (Object.keys(item).length === 0) {
+    if (isEmptyObj(item)) {
         return null;
     }
 
-    return deserialize(id, item);
+    return deserializeItem(id, item);
 };
 
-export const getItems = async (ids: string[]) => {};
+export const getItems = async (ids: string[]) => {
+    const commands = ids.map(id => {
+        return client.hGetAll(itemsKey(id));
+    });
+
+    const result = await Promise.all(commands);
+
+    result.map((result, idx) => {
+        if (isEmptyObj(result)) {
+            return null;
+        };
+
+        return deserializeItem(ids[idx], result);
+    })
+};
 
 export const createItem = async (attrs: CreateItemAttrs, userId: string) => {
     const id = genId();
