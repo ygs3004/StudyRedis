@@ -1,3 +1,5 @@
+import {getItem} from "$services/queries/items/items";
+
 interface QueryOpts {
 	page: number;
 	perPage: number;
@@ -5,4 +7,11 @@ interface QueryOpts {
 	direction: string;
 }
 
-export const itemsByUser = async (userId: string, opts: QueryOpts) => {};
+export const itemsByUser = async (userId: string, opts: QueryOpts) => {
+		return {
+			items:getItem(userId)
+		}
+	}
+
+
+;

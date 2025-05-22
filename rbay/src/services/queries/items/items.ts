@@ -22,7 +22,7 @@ export const getItems = async (ids: string[]) => {
 
     const result = await Promise.all(commands);
 
-    result.map((result, idx) => {
+    return result.map((result, idx) => {
         if (isEmptyObj(result)) {
             return null;
         };

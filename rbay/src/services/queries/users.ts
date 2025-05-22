@@ -3,7 +3,9 @@ import { genId } from '$services/utils';
 import {client} from "$services/redis";
 import {usernamesUniqueKey, usersKey} from "$services/keys";
 
-export const getUserByUsername = async (username: string) => {};
+export const getUserByUsername = async (username: string) => {
+
+};
 
 export const getUserById = async (id: string) => {
     const user = await client.hGetAll(usersKey(id));
