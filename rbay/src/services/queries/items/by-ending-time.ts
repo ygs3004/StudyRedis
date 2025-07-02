@@ -1,5 +1,5 @@
 import {client} from "$services/redis";
-import {itemsByEndingAtKey} from "$services/keys";
+import {itemsByEndingAtKey, itemsKey} from "$services/keys";
 import {deserializeItem} from "$services/queries/items/deserialize";
 
 export const itemsByEndingTime = async (
@@ -19,5 +19,7 @@ export const itemsByEndingTime = async (
             }
         }
     );
-    console.log(ids);
+
+    const results = await Promise.all(ids.map(id =>  client.hGetAll(itemsKey(id))));
+    return results.map((item, i) => deserializeItem(ids[i], item));
 };
