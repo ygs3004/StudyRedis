@@ -2,8 +2,23 @@ import type { CreateBidAttrs, Bid } from '$services/types';
 import {DateTime} from "luxon";
 import {client} from "$services/redis";
 import {bidHistoryKey} from "$services/keys";
+import {getItem} from "$services/queries/items";
 
 export const createBid = async (attrs: CreateBidAttrs) => {
+
+	const item = await getItem(attrs.itemId);
+	if (!item) {
+		throw new Error('아이템이 존재하지 않습니다.');
+	}
+
+	if (item.price >= attrs.amount) {
+		throw new Error('입찰가능한 최소 입찰가보다 낮습니다.');
+	}
+
+	if (item.endingAt.diff(DateTime.now()).toMillis() < 0) {
+		throw new Error('입찰이 종료된 건입니다.')
+	}
+
 	const serialized = serializeHistory(
 		attrs.amount,
 		attrs.createdAt.toMillis()
