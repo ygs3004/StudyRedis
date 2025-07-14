@@ -13,7 +13,7 @@ export const deserializeItem = (id: string, item: { [key: string]: string }): It
         endingAt: DateTime.fromMillis(parseInt(item.endingAt)),
         views: parseInt(item.views),
         likes: parseInt(item.likes),
-        price: parseInt(item.price),
+        price: parseFloat(item.price),
         bids: parseInt(item.bids),
     }
 };
