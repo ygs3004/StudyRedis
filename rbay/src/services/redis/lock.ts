@@ -1,7 +1,7 @@
 import {randomBytes} from "crypto";
 import {client} from "$services/redis/client";
 
-export const withLock = async (key: string, callback: () => any) => {
+export const withLock = async (key: string, callback: (signal: any) => any) => {
     const retryDelayMs = 100;
     let retries = 20;
 
@@ -10,7 +10,8 @@ export const withLock = async (key: string, callback: () => any) => {
 
     while(retries-- >= 0) {
         const acquired = await client.set(lockKey, token, {
-            NX:true,
+            NX: true,
+            PX: 2000, // 오류 및 기타 서버 오류시 지연시간 후 잠금해제 되도록
         });
 
         if (!acquired) {
@@ -18,9 +19,17 @@ export const withLock = async (key: string, callback: () => any) => {
             continue;
         }
 
-        const result = await callback();
-        await client.del(lockKey);
-        return result;
+        try{
+            const signal = {expired: false};
+            setTimeout(() => {
+                signal.expired = true;
+            });
+            const result = await callback(signal);
+            return result;
+        } finally {
+            // 로직종료, 유효성 검사, callback 내 임의 Error로 인한 Lock 해제
+            await client.unlock(lockKey, token);
+        }
     }
 };
 

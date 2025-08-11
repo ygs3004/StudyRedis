@@ -1,15 +1,14 @@
 import type { CreateBidAttrs, Bid } from '$services/types';
 import {DateTime} from "luxon";
-import {client} from "$services/redis";
+import {client, withLock} from "$services/redis";
 import {bidHistoryKey, itemsByPriceKey, itemsKey} from "$services/keys";
 import {getItem} from "$services/queries/items";
 
 export const createBid = async (attrs: CreateBidAttrs) => {
-    return client.executeIsolated(async (isolatedClient) => {
-
-        await isolatedClient.watch(itemsKey(attrs.itemId));
+    return withLock(attrs.itemId, async (signal: any) => {
 
         const item = await getItem(attrs.itemId);
+
         if (!item) {
             throw new Error('아이템이 존재하지 않습니다.');
         }
@@ -18,7 +17,7 @@ export const createBid = async (attrs: CreateBidAttrs) => {
             throw new Error('입찰가능한 최소 입찰가보다 낮습니다.');
         }
 
-        if (item.endingAt.diff(DateTime.now()).toMillis() < 0) {
+        if (item.endingAt.diff(DateTime.now()).toMillis() <= 0) {
             throw new Error('입찰이 종료된 건입니다.')
         }
 
@@ -27,25 +26,22 @@ export const createBid = async (attrs: CreateBidAttrs) => {
             attrs.createdAt.toMillis()
         );
 
-        const result = await isolatedClient
-            .multi()
-            .rPush(bidHistoryKey((attrs.itemId)), serialized)
-            .hSet(itemsKey(item.id), {
+        if(signal.expired){
+            throw new Error('Lock 이 만료되었습니다. 데이터를 변경할 수 없습니다.')
+        }
+
+        return Promise.all([
+            client.rPush(bidHistoryKey((attrs.itemId)), serialized),
+            client.hSet(itemsKey(item.id), {
                 bids: item.bids + 1,
                 price: attrs.amount,
                 highestBidUserId: attrs.userId,
-            })
-            .zAdd(itemsByPriceKey(), {
+            }),
+            client.zAdd(itemsByPriceKey(), {
                 value: item.id,
                 score: attrs.amount
-            })
-            .exec();
-
-        if (result == null) {
-            throw new Error('서버가 혼잡하여 입찰에 실패했습니다.')
-        }
-
-        return result;
+            }),
+        ])
     })
 };
 

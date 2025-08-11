@@ -8,6 +8,20 @@ const client = createClient({
     },
     password: process.env.REDIS_PW,
     scripts: {
+        unlock: defineScript({
+            NUMBER_OF_KEYS: 1,
+            SCRIPT: `
+                if redis.call('GET', KEYS[1]) == ARGV[1] then
+                    return redis.call('DEL', KEYS[1])
+                end
+            `,
+            transformArguments(key: string, token: string){
+                return [key, token];
+            },
+            transformReply(reply: any) {
+                return reply;
+            }
+        }),
         addOneAndStore: defineScript({
             NUMBER_OF_KEYS: 1, // 키값으로 사용할 인수 수
             SCRIPT: ` 
