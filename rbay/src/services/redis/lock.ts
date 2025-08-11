@@ -1,8 +1,10 @@
 import {randomBytes} from "crypto";
 import {client} from "$services/redis/client";
+import * as timers from "node:timers";
 
-export const withLock = async (key: string, callback: (signal: any) => any) => {
+export const withLock = async (key: string, callback: (redisClient: Client, signal: any) => any) => {
     const retryDelayMs = 100;
+    const timeoutMs = 2000;
     let retries = 20;
 
     const token = randomBytes(6).toString('hex');
@@ -23,8 +25,10 @@ export const withLock = async (key: string, callback: (signal: any) => any) => {
             const signal = {expired: false};
             setTimeout(() => {
                 signal.expired = true;
-            });
-            const result = await callback(signal);
+            }, timeoutMs);
+
+            const proxiedClient = buildClientProxy(timeoutMs)
+            const result = await callback(proxiedClient, signal);
             return result;
         } finally {
             // 로직종료, 유효성 검사, callback 내 임의 Error로 인한 Lock 해제
@@ -33,7 +37,23 @@ export const withLock = async (key: string, callback: (signal: any) => any) => {
     }
 };
 
-const buildClientProxy = () => {};
+type Client = typeof client;
+const buildClientProxy = (timeoutMs: number) => {
+    const startTime = Date.now();
+
+    const handler = {
+        get(target: Client, prop: keyof Client) {
+            if(Date.now() >= startTime + timeoutMs){
+                throw new Error('Lock has expired');
+            }
+
+            const value = target[prop];
+            return typeof value === "function" ? value.bind(target) : value;
+        }
+    }
+
+    return new Proxy(client, handler) as Client
+};
 
 const pause = (duration: number) => {
 	return new Promise((resolve) => {
