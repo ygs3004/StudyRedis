@@ -12,16 +12,19 @@ export const searchItems = async (term: string, size: number = 5) => {
         .map(word => word ? `%${word}%` : word)
         .join (' ');
 
+
+    const query = `(@name:(${cleaned}) => { $weight: 5.0 }) | (@description:(${cleaned}))`
+
     if(cleaned === ''){
         return [];
     }
 
     const results = await client.ft.search(
         itemsIndexKey(),
-        cleaned,
+        query,
         {
             LIMIT: {
-                from: 10,
+                from: 0,
                 size
             }
         }
