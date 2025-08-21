@@ -25,7 +25,7 @@ export const getItems = async (ids: string[]) => {
     return result.map((result, idx) => {
         if (isEmptyObj(result)) {
             return null;
-        };
+        }
 
         return deserializeItem(ids[idx], result);
     })
